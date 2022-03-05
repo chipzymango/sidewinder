@@ -13,6 +13,24 @@ pygame.display.set_caption("Sidewinder")
 
 clock = pygame.time.Clock()
 
+cell_list = []
+object_list = []
+rect_list = []
+
+# width in pixels on each cell
+cell_width = 20 * cell_size
+
+# start at top left corner
+cell_x, cell_y = 0, 0
+
+# amount of cells in x and y
+x_axis = 25
+y_axis = 25
+
+bg_color = (255, 225, 200)
+
+grid_border_color = bg_color
+
 class Object():
 	def __init__(self, start_x, start_y):
 		self.x = start_x
@@ -26,25 +44,13 @@ class Object():
 	def update(self):
 		WINDOW.blit(self.image, (self.x, self.y))
 
-# amount of pixels wide in a cell
-cell_width = 20 * cell_size
-
-# amount of cells in x and y
-x_axis = 25
-y_axis = 25
-
-bg_color = (255, 225, 200)
-
-grid_border_color = (225,200,175)
-
-cell_list = []
+# start position
+target_cell_x, target_cell_y = 200, 200
 
 for y_cell in range(y_axis):
 	for x_cell in range(x_axis):
 		individual_cell = pygame.Rect( (cell_width * x_cell), (cell_width * y_cell), cell_width * cell_size, cell_width * cell_size)
 		cell_list.append(individual_cell)
-
-cell_x, cell_y = 0, 0
 
 # set fixed cell coordinates
 for each_cell in cell_list:
@@ -52,25 +58,48 @@ for each_cell in cell_list:
 	each_cell_x = int(each_cell.x / cell_width)
 	each_cell_y = int(each_cell.y / cell_width)
 
-live_timer = pygame.time.get_ticks()
-live_timer2 = pygame.time.get_ticks()
+# timers to control various events
+display_update_timer = pygame.time.get_ticks()
+obstacle_spawn_timer = pygame.time.get_ticks()
 
-# start position
-target_cell_x, target_cell_y = 200, 200
-player_rect = pygame.Rect(target_cell_x, target_cell_y, cell_width, cell_width)
-previous_player_x, previous_player_y = target_cell_x, target_cell_y
-player_tail = pygame.Rect(previous_player_x, previous_player_y, cell_width, cell_width)
-
-bad_block = pygame.Rect(10 * cell_width, 20 * cell_width, cell_width, cell_width)
-
-movement_delay = 100
+display_update_delay = 100
 
 moving_right = True
 moving_down = False
 moving_left = False
 moving_up = False
 
-object_list = []
+def reset_game(): # reset game values
+	obstacle_spawn_timer = pygame.time.get_ticks()
+	display_update_timer = pygame.time.get_ticks()
+	rect_list.clear()
+	object_list.clear()
+	player_head_rect.x, player_head_rect.y = target_cell_x, target_cell_y
+	rect_list.append(player_head_rect)
+
+def game_over():
+	print("Game over !")
+	print("You died at: " + str(player_head_rect.x) + ", " + str(player_head_rect.y))
+
+	game_over_loop = True
+
+	screen_layer = pygame.Surface((WINDOW_X, WINDOW_Y)).convert_alpha()
+	while game_over_loop:
+		screen_layer.fill((0,0,0, 0.5))
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				pygame.quit()
+				exit()
+			if event.type == pygame.KEYDOWN:
+				game_over_loop = False
+
+	reset_game()
+
+# draw each individual cell to form the grid
+def draw_grid_layout():
+	for each_cell in cell_list:
+		# draw borders
+		pygame.draw.rect(WINDOW, grid_border_color, each_cell, 1, 0, 1)
 
 def spawn_object():
 	rx = random.randint(1, x_axis-1)
@@ -80,21 +109,21 @@ def spawn_object():
 	new_object = Object(rx, ry)
 	print("Spawned new object at: " + str(rx) + ", " + str(ry))
 
+def player_grow():
+	new_rect = pygame.Rect(0,0,cell_width, cell_width)
+	rect_list.append(new_rect)
+
+# starter head
+player_head_rect = pygame.Rect(target_cell_x, target_cell_y, cell_width, cell_width)
+rect_list.append(player_head_rect)
+
 FPS = 60
 running = True
 while running:
-	clock.tick(FPS)
-	# draw background color
-	WINDOW.fill(bg_color)
+	clock.tick(FPS) # set 
+	WINDOW.fill(bg_color) # draw background color
 
-	# get the previous occupied cell of player
-	pygame.draw.rect(WINDOW, (0, 255, 0), player_rect)
-	pygame.draw.rect(WINDOW, (0, 200, 0), player_tail)
-
-	# draw each individual cell to form the grid
-	for each_cell in cell_list:
-		# draw borders
-		pygame.draw.rect(WINDOW, grid_border_color, each_cell, 1, 0, 1)
+	draw_grid_layout() # draw cell rows and columns
 
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
@@ -130,53 +159,64 @@ while running:
 					moving_down = False
 					moving_left = False
 
+			if event.key == pygame.K_SPACE:
+				player_grow()
+
 	# call update method in every existing object
 	for each_object in object_list:
 		each_object.update()
 
 	# spawn a new object every third second
-	if pygame.time.get_ticks() - live_timer2 > 3000:
-		live_timer2 = pygame.time.get_ticks() 
+	if pygame.time.get_ticks() - obstacle_spawn_timer > 3000:
+		obstacle_spawn_timer = pygame.time.get_ticks() 
 		spawn_object()
 
-	if pygame.time.get_ticks() - live_timer > movement_delay:
-		live_timer = pygame.time.get_ticks()
-		previous_player_x, previous_player_y = player_rect.x, player_rect.y
+	if pygame.time.get_ticks() - display_update_timer > display_update_delay:
+		display_update_timer = pygame.time.get_ticks()
 
 		if moving_right:
-			if target_cell_x + cell_width >= WINDOW_X:
-				target_cell_x = 0
+			if player_head_rect.x + cell_width >= WINDOW_X: 
+				player_head_rect.x = 0
 			else:
-				target_cell_x += cell_width
-
+				player_head_rect.x += cell_width
 		elif moving_down:
-			if target_cell_y + cell_width >= WINDOW_Y:
-				target_cell_y = 0
+			if player_head_rect.y + cell_width >= WINDOW_Y:
+				player_head_rect.y = 0
 			else:
-				target_cell_y += cell_width
-
+				player_head_rect.y += cell_width
 		elif moving_left:
-			if target_cell_x  <= 0:
-				target_cell_x = WINDOW_X - cell_width
+			if player_head_rect.x  <= 0:
+				player_head_rect.x = WINDOW_X - cell_width
 			else:
-				target_cell_x -= cell_width
-
+				player_head_rect.x -= cell_width
 		elif moving_up:
-			if target_cell_y <= 0:
-				target_cell_y = WINDOW_Y - cell_width
+			if player_head_rect.y <= 0:
+				player_head_rect.y = WINDOW_Y - cell_width
 			else:
-				target_cell_y -= cell_width
+				player_head_rect.y -= cell_width
 
-	# update cell coordinates
-	player_rect.x = target_cell_x
-	player_rect.y = target_cell_y
-	player_tail.x = previous_player_x
-	player_tail.y = previous_player_y
+		# we loop in reverse so we can find the x and y
+		# values of each rect, prior to being updated
+		# this means we can find the old rect's x and y values
+		for rect_id in range(len(rect_list)-1, 0, -1):
+			rect_x = rect_list[rect_id]
+			if rect_x == rect_list[0]:
+				pass
+			else:
+				rect_x.x = rect_list[rect_id-1].x
+				rect_x.y = rect_list[rect_id-1].y
+
+	for rect in rect_list:
+		pygame.draw.rect(WINDOW, (200,50,50), rect)
 
 	for each_object in object_list:
-		if player_rect.colliderect(each_object):
-			print("Game over !")
-			print("You died at: " + str(player_rect.x) + ", " + str(player_rect.y))
-			running = False
+		if player_head_rect.colliderect(each_object):
+			game_over()
+
+	for each_body in rect_list:
+		if each_body == rect_list[0]:
+			pass
+		elif player_head_rect.colliderect(each_body):
+			game_over()
 
 	pygame.display.update()
