@@ -4,7 +4,7 @@ import time
 
 pygame.init()
 
-cell_size = 1
+cell_size = 2
 
 WINDOW_X, WINDOW_Y = 500 * cell_size, 500 * cell_size
 
@@ -14,10 +14,9 @@ pygame.display.set_caption("Sidewinder")
 
 clock = pygame.time.Clock()
 
-
-DEFAULT_FONT = pygame.font.Font('font/dpcomic.ttf', 30)
-game_over_text = DEFAULT_FONT.render("This is the default font !", 1, (255,0,0))
-
+BIG_FONT = pygame.font.Font('font/dpcomic.ttf', 80)
+DEFAULT_FONT = pygame.font.Font('font/dpcomic.ttf', 40)
+SMALL_FONT = pygame.font.Font('font/dpcomic.ttf', 32)
 
 cell_list = []
 object_list = []
@@ -35,7 +34,7 @@ y_axis = 25
 
 bg_color = (255, 225, 200)
 
-grid_border_color = bg_color#(225,200,175)#bg_color
+grid_border_color = (225,200,175)#bg_color
 
 # player start position
 target_cell_x, target_cell_y = 200, 200
@@ -162,18 +161,31 @@ def start_game(): # reset game values
 	start_middle_body_part = BodyPart(start_head_body_part.rect.x-cell_width, start_head_body_part.rect.y)
 	start_tail_body_part = BodyPart(start_middle_body_part.rect.x-cell_width, start_middle_body_part.rect.y)
 
-def game_over():
-	print("Game over !")
-	print("You died !")
+def game_over(total_score_count):
+	game_over_message = "Game over !"
+	results_message = "You died with a total score of: " + str(total_score_count)
+
+	results_text = SMALL_FONT.render(results_message, 1, (245, 245, 245))
+	results_text_shadow = SMALL_FONT.render(results_message, 1, (115, 115, 115))
+	game_over_text = BIG_FONT.render(game_over_message, 1, (100, 225, 100))
+	game_over_text_shadow = BIG_FONT.render(game_over_message, 1, (25, 75, 50))
+
+	game_over_timer = pygame.time.get_ticks()
 
 	game_over_loop = True
 
 	screen_layer = pygame.Surface((WINDOW_X, WINDOW_Y)).convert()
-	
-	while game_over_loop:
-		screen_layer.fill((0,0,0))
-		screen_layer.set_alpha(.5)
-		screen_layer.blit(game_over_text, (50, 50))
+	screen_layer.set_colorkey((0,0,0))
+
+	color_overlay = pygame.Surface((WINDOW_X, WINDOW_Y)).convert()
+	color_overlay.fill((0,0,0))
+	color_overlay.set_alpha(125)
+	WINDOW.blit(color_overlay, (0,0))
+	while game_over_loop:		
+
+		screen_layer.blit(game_over_text_shadow, ( int(WINDOW_X/2)- int(game_over_text_shadow.get_width()/2) + text_shadow_width, 200 + text_shadow_width))
+		screen_layer.blit(game_over_text, ( int(WINDOW_X/2)- int(game_over_text.get_width()/2), 200))
+
 		WINDOW.blit(screen_layer, (0,0))
 
 		for event in pygame.event.get():
@@ -182,7 +194,8 @@ def game_over():
 				exit()
 
 			if event.type == pygame.KEYDOWN:
-				game_over_loop = False
+				if pygame.time.get_ticks() - game_over_timer > 3000:
+					game_over_loop = False
 
 		pygame.display.update()
 
@@ -229,7 +242,8 @@ def spawn_object(object_type='food'):
 
 def player_grow():
 	# spawn a new body part behind the last body part	
-	new_rect = BodyPart(body_part_list[-1].rect.x, body_part_list[-1].rect.y) 
+	new_rect = BodyPart(body_part_list[-1].rect.x, body_part_list[-1].rect.y)
+	
 
 for each_object in object_list:
 	if body_part_list[0].rect.colliderect(each_object.rect):
@@ -253,21 +267,25 @@ obstacle_spawn_timer = pygame.time.get_ticks()
 direction_change_cooldown_timer = pygame.time.get_ticks()
 direction_change_cooldown = 66
 display_update_delay = 100
+score_count = 0
 
 # starter body rect
 start_head_body_part = BodyPart(target_cell_x, target_cell_y)
 start_middle_body_part = BodyPart(start_head_body_part.rect.x-cell_width, start_head_body_part.rect.y)
 start_tail_body_part = BodyPart(start_middle_body_part.rect.x-cell_width, start_middle_body_part.rect.y)
+text_shadow_width = 3
 
 spawn_object()
-
+        
 FPS = 60
 running = True
 while running:
 	clock.tick(FPS) # set fixed framerate
-
 	WINDOW.fill(bg_color) # draw background color
 
+	score_count_text = BIG_FONT.render(str(score_count), 1, (255,100,0))
+	score_count_text_shadow = BIG_FONT.render(str(score_count), 1, (125,50,0))
+        
 	draw_grid_layout() # draw cell rows and columns
 
 	for event in pygame.event.get():
@@ -281,7 +299,6 @@ while running:
 					if pygame.time.get_ticks() - direction_change_cooldown_timer > direction_change_cooldown:
 						body_part_list[0].direction = 'right'
 						direction_change_cooldown_timer = pygame.time.get_ticks()
-
 
 			if event.key == pygame.K_DOWN:
 				if body_part_list[0].direction == 'left' or body_part_list[0].direction == 'right':
@@ -369,6 +386,9 @@ while running:
 	for each_object in object_list:
 		each_object.update()
 
+	WINDOW.blit(score_count_text_shadow, ( int(WINDOW_X/2)- int(score_count_text.get_width()/2) + text_shadow_width, 20 + text_shadow_width))
+	WINDOW.blit(score_count_text, ( int(WINDOW_X/2)- int(score_count_text.get_width()/2), 20))
+
 	# assign each rect an id and check if a body
 	# rect has collided with the player head rect
 	for body_id in range(len(body_part_list)):
@@ -378,7 +398,9 @@ while running:
 				pass
 			else:
 				print("player head has collided with: body rect id {0} !".format(body_id))
-				game_over()
+				total_score_count = score_count
+				score_count = 0
+				game_over(total_score_count)
 				break # break so the loop does not continue after the game reset
 
 	# check if an object has collided with player
@@ -386,11 +408,14 @@ while running:
 		if body_part_list[0].rect.colliderect(objects.rect) and objects.active == True:
 			if objects.object_type == 'food':
 				player_grow()
+				score_count += 1
 
 				spawn_object()
 			elif objects.object_type == 'obstacle':
 				print("player head has collided with: obstacle id {0} !".format(objects._id))
-				game_over()
+				total_score_count = score_count
+				score_count = 0
+				game_over(total_score_count)
 				break
 
 			objects.active = False
