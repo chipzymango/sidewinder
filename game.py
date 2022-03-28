@@ -4,7 +4,7 @@ import time
 
 pygame.init()
 
-cell_size = 2
+cell_size = 1
 
 WINDOW_X, WINDOW_Y = 500 * cell_size, 500 * cell_size
 
@@ -69,9 +69,60 @@ class Object():
 		self.active = True
 		object_list.append(self)
 
+		self.movement_count = 0 # counts how many times the object has moved from its start position
+
+		if self.object_type == 'blue_food':
+			self.directions = ['down', 'up']
+			self.does_move = True
+			self.direction = self.directions[0]
+		elif self.object_type == 'green_food' or self.object_type == 'red_food':
+			self.directions = ['right', 'left']
+			self.direction = self.directions[0]
+			self.does_move = True
+		else:
+			self.does_move = False
+
+		self.movement_distance = 8
+
+	def move(self):
+		if self.does_move and self.active:
+			if self.direction == 'down':
+				self.rect.y += cell_width
+				self.movement_count += 1
+
+			elif self.direction == 'up':
+				self.rect.y -= cell_width
+				self.movement_count -= 1
+
+			elif self.direction == 'right':
+				self.rect.x += cell_width
+				self.movement_count += 1
+
+			elif self.direction == 'left':
+				self.rect.x -= cell_width
+				self.movement_count -= 1
+
+			if self.movement_count == self.movement_distance:
+				self.direction = self.directions[1]
+
+			elif self.movement_count == 0:
+				self.direction = self.directions[0]
+
 	def update(self):
 		if self.active:
 			WINDOW.blit(self.image, (self.rect.x, self.rect.y))
+
+			if self.rect.x + cell_width >= WINDOW_X:
+				self.rect.x = 0
+
+			if self.rect.y + cell_width >= WINDOW_Y:
+				self.rect.y = 0
+
+			if self.rect.x  <= 0:
+				self.rect.x = WINDOW_X - cell_width
+
+			if self.rect.y <= 0:
+				self.rect.y = WINDOW_Y - cell_width
 
 class BodyPart():
 	def __init__(self, start_x, start_y):
@@ -162,17 +213,38 @@ def start_game(): # reset game values
 	start_tail_body_part = BodyPart(start_middle_body_part.rect.x-cell_width, start_middle_body_part.rect.y)
 
 def game_over(total_score_count):
-	game_over_message = "Game over !"
-	results_message = "You died with a total score of: " + str(total_score_count)
 
-	results_text = SMALL_FONT.render(results_message, 1, (245, 245, 245))
-	results_text_shadow = SMALL_FONT.render(results_message, 1, (115, 115, 115))
+	high_score_file = open('highscore.txt', 'r')
+	high_score = int(high_score_file.read())
+	high_score_file.close()
+
+	game_over_message = "Game over !"
+
+	# update high score and change color if total score surpasses it
+	if total_score_count > high_score:
+		highscore_color = (175,175,255)
+		highscore_shadow_color = (50,50, 100)
+		highscore_message = "New High score : " + str(total_score_count)
+
+		high_score_file = open('highscore.txt', 'w+')
+		high_score_file.write(str(total_score_count))
+		high_score_file.close()
+
+	else:
+		highscore_message = "High score : " + str(high_score)
+		highscore_color = (250,225,75)
+		highscore_shadow_color = (100,75,25)
+
+	highscore_text = SMALL_FONT.render(highscore_message, 1, highscore_color)
+	highscore_text_shadow = SMALL_FONT.render(highscore_message, 1, highscore_shadow_color)
+
 	game_over_text = BIG_FONT.render(game_over_message, 1, (100, 225, 100))
 	game_over_text_shadow = BIG_FONT.render(game_over_message, 1, (25, 75, 50))
 
-	game_over_timer = pygame.time.get_ticks()
+	score_count_text = BIG_FONT.render(str(total_score_count), 1, (255,50,0))
+	score_count_text_shadow = BIG_FONT.render(str(total_score_count), 1, (125,25,0))
 
-	game_over_loop = True
+	game_over_timer = pygame.time.get_ticks()
 
 	screen_layer = pygame.Surface((WINDOW_X, WINDOW_Y)).convert()
 	screen_layer.set_colorkey((0,0,0))
@@ -181,10 +253,18 @@ def game_over(total_score_count):
 	color_overlay.fill((0,0,0))
 	color_overlay.set_alpha(125)
 	WINDOW.blit(color_overlay, (0,0))
-	while game_over_loop:		
 
-		screen_layer.blit(game_over_text_shadow, ( int(WINDOW_X/2)- int(game_over_text_shadow.get_width()/2) + text_shadow_width, 200 + text_shadow_width))
-		screen_layer.blit(game_over_text, ( int(WINDOW_X/2)- int(game_over_text.get_width()/2), 200))
+	game_over_loop = True
+	while game_over_loop:
+
+		screen_layer.blit(game_over_text_shadow, ( int(WINDOW_X/2) - int(game_over_text.get_width()/2) + text_shadow_width, 200 + text_shadow_width * cell_size))
+		screen_layer.blit(game_over_text, ( int(WINDOW_X/2)- int(game_over_text.get_width()/2), 200 * cell_size))			
+
+		screen_layer.blit(highscore_text_shadow, ( int(WINDOW_X/2) - int(highscore_text.get_width()/2) + text_shadow_width, 440 + text_shadow_width * cell_size))
+		screen_layer.blit(highscore_text, ( int(WINDOW_X/2) - int(highscore_text.get_width()/2), 440 * cell_size))
+
+		WINDOW.blit(score_count_text_shadow, ( int(WINDOW_X/2) - int(score_count_text.get_width()/2) + text_shadow_width, 20 + text_shadow_width))
+		WINDOW.blit(score_count_text, ( int(WINDOW_X/2)- int(score_count_text.get_width()/2), 20))
 
 		WINDOW.blit(screen_layer, (0,0))
 
@@ -194,7 +274,15 @@ def game_over(total_score_count):
 				exit()
 
 			if event.type == pygame.KEYDOWN:
-				if pygame.time.get_ticks() - game_over_timer > 3000:
+				if event.key == pygame.K_r:
+					high_score_file = open('highscore.txt', 'w+')
+					high_score_file.write("0")
+					high_score_file.close()
+
+					print("Highscore has been reset !")
+
+			if event.type == pygame.KEYDOWN:
+				if pygame.time.get_ticks() - game_over_timer > 2000:
 					game_over_loop = False
 
 		pygame.display.update()
@@ -229,12 +317,16 @@ def spawn_object(object_type='food'):
 	for bodypart in body_part_list:
 		if rx == bodypart.rect.x and ry == bodypart.rect. y:
 			target_cell_occupied = True
-			print("Cell occupied by body part !")
+			print("Cell occupied by body part !") 
+			spawn_object(object_type)
 
 	for objects in object_list:
 		if rx == objects.rect.x and ry == objects.rect.y:
 			target_cell_occupied = True
 			print("Cell occupied by obstacle !")
+			if len(object_list) < 1:
+				print("SPAWNING NEW !!!")
+			spawn_object(object_type)
 
 	if not target_cell_occupied:
 		new_object = Object(rx, ry, object_type)
@@ -243,7 +335,7 @@ def spawn_object(object_type='food'):
 def player_grow():
 	# spawn a new body part behind the last body part	
 	new_rect = BodyPart(body_part_list[-1].rect.x, body_part_list[-1].rect.y)
-	
+
 
 for each_object in object_list:
 	if body_part_list[0].rect.colliderect(each_object.rect):
@@ -275,7 +367,7 @@ start_middle_body_part = BodyPart(start_head_body_part.rect.x-cell_width, start_
 start_tail_body_part = BodyPart(start_middle_body_part.rect.x-cell_width, start_middle_body_part.rect.y)
 text_shadow_width = 3
 
-spawn_object()
+score_gathered = False # to prevent extra points
         
 FPS = 60
 running = True
@@ -285,7 +377,6 @@ while running:
 
 	score_count_text = BIG_FONT.render(str(score_count), 1, (255,100,0))
 	score_count_text_shadow = BIG_FONT.render(str(score_count), 1, (125,50,0))
-        
 	draw_grid_layout() # draw cell rows and columns
 
 	for event in pygame.event.get():
@@ -322,16 +413,23 @@ while running:
 				player_grow()
 
 	# spawn a new object every third second
-	if pygame.time.get_ticks() - obstacle_spawn_timer > 5000:
+	if pygame.time.get_ticks() - obstacle_spawn_timer > 10000:
 		obstacle_spawn_timer = pygame.time.get_ticks()
 		rng = random.randint(0, 10)
-		if rng == 7:
-			spawn_object('food')
-		else: 
+		if rng == 0:
+			spawn_object('blue_food')
+		elif rng == 1:
+			spawn_object('green_food')
+		elif rng == 2:
+			spawn_object('red_food')
+		elif rng == 3:
+			spawn_object('grey_food')
+		elif rng == 4:
 			spawn_object('obstacle')
 
 	if pygame.time.get_ticks() - display_update_timer > display_update_delay:
 		display_update_timer = pygame.time.get_ticks()
+		score_gathered = False
 
 		# we loop in reverse so we can find the x and y
 		# values of each rect, prior to being updated
@@ -347,7 +445,10 @@ while running:
 				x_body.rect.y = previous_x_body.rect.y
 
 				if previous_x_body.direction != x_body.direction:
-					x_body.direction = previous_x_body.direction	
+					x_body.direction = previous_x_body.direction
+
+		for objects in object_list:
+			objects.move()
 
 		for bodypart in body_part_list:
 			bodypart.update()
@@ -379,12 +480,22 @@ while running:
 					else:
 						next_x_body.image = player_joint_image
 
+
+	# call update method in every existing object
+	for objects in object_list:
+		objects.update()
+
 	for bodypart in body_part_list:
 		bodypart.draw()
 
-	# call update method in every existing object
-	for each_object in object_list:
-		each_object.update()
+	# spawn food if none are present in the game
+	foods_available = None
+	for objects in object_list: # check if food is available
+		if objects.object_type == 'food' and objects.active:
+			foods_available = True
+
+	if not foods_available:
+		spawn_object()
 
 	WINDOW.blit(score_count_text_shadow, ( int(WINDOW_X/2)- int(score_count_text.get_width()/2) + text_shadow_width, 20 + text_shadow_width))
 	WINDOW.blit(score_count_text, ( int(WINDOW_X/2)- int(score_count_text.get_width()/2), 20))
@@ -403,14 +514,42 @@ while running:
 				game_over(total_score_count)
 				break # break so the loop does not continue after the game reset
 
-	# check if an object has collided with player
+	# check if an object has collided with player and give specific points
 	for objects in object_list:
-		if body_part_list[0].rect.colliderect(objects.rect) and objects.active == True:
-			if objects.object_type == 'food':
+		for b in body_part_list:
+			if b.rect.colliderect(objects.rect):
+				pass
+		if (body_part_list[0].rect.colliderect(objects) or body_part_list[1].rect.colliderect(objects.rect) ) and objects.active and score_gathered == False:# and score_gathered == False:
+			if objects.object_type == 'red_food':
 				player_grow()
-				score_count += 1
+				score_count += 9
+				objects.active = False
+				score_gathered = True
 
-				spawn_object()
+			elif objects.object_type == 'grey_food':
+				player_grow()
+				score_count += 12
+				objects.active = False
+				score_gathered = True
+
+			elif objects.object_type == 'blue_food':
+				player_grow()	
+				score_count += 24
+				objects.active = False
+				score_gathered = True
+
+			elif objects.object_type == 'green_food':
+				player_grow()
+				score_count += 12
+				objects.active = False
+				score_gathered = True
+
+			elif objects.object_type == 'food':
+				player_grow()
+				score_count += 3
+				objects.active = False
+				score_gathered = True
+
 			elif objects.object_type == 'obstacle':
 				print("player head has collided with: obstacle id {0} !".format(objects._id))
 				total_score_count = score_count
@@ -419,5 +558,7 @@ while running:
 				break
 
 			objects.active = False
+
+	print(score_gathered)
 
 	pygame.display.update()
